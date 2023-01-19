@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+    <Button
+        android:id="@+id/buttonstartstream"
+        android:layout_width="130dp"
+        android:layout_height="100dp"
+        android:text="Start Stream"
+        android:layout_marginVertical="20dp"
+        android:layout_marginHorizontal="7dp"
+        app:layout_constraintBottom_toBottomOf="@+id/surfaceView"
+        app:layout_constraintStart_toEndOf="@id/surfaceView"
+        app:layout_constraintStart_toStartOf="@+id/surfaceView" />
+
+    <Button
+        android:id="@+id/buttontakepic"
+        android:layout_width="130dp"
+        android:layout_height="100dp"
+        android:text="Take Pic"
+        android:layout_marginVertical="20dp"
+        android:layout_marginHorizontal="4dp"
+        app:layout_constraintBottom_toBottomOf="@+id/surfaceView"
+        app:layout_constraintStart_toEndOf="@+id/buttonstartstream" />
+
+    <Button
+        android:id="@+id/buttonswitchcamera"
+        android:layout_width="130dp"
+        android:layout_height="100dp"
+        android:text="Switch Camera"
+        android:layout_marginVertical="20dp"
+        android:layout_marginHorizontal="4dp"
+        app:layout_constraintBottom_toBottomOf="@+id/surfaceView"
+        app:layout_constraintStart_toEndOf="@+id/buttontakepic" />
+
+    <TextureView
+        android:id="@+id/surfaceView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintBaseline_toBaselineOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+</android.support.constraint.ConstraintLayout>
