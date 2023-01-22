@@ -36,10 +36,10 @@
         app:layout_constraintBottom_toBottomOf="@+id/surfaceView"
         app:layout_constraintStart_toEndOf="@+id/buttontakepic" />
 
-    <TextureView
+    <SurfaceView
         android:id="@+id/surfaceView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         app:layout_constraintBaseline_toBaselineOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
