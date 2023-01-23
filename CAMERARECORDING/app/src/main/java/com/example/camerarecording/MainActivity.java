@@ -13,6 +13,7 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.media.MediaCodec;
 import android.media.MediaRecorder;
 import android.os.Build;
 import android.os.Bundle;
@@ -35,6 +36,8 @@ import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.time.Instant;
 
@@ -44,6 +47,7 @@ import java.time.Instant;
 * https://github.com/commonsguy/cw-advandroid/blob/master/Camera/Preview/src/com/commonsware/android/camera/PreviewDemo.java
 * https://stackoverflow.com/questions/9238383/using-surfaceview-to-capture-a-video
 * https://stackoverflow.com/questions/16852774/getdefaultdisplay-getrotation-returns-always-same-value
+* https://stackoverflow.com/questions/24176463/difference-between-setvideoframerate-and-setcapturerate-mediarecorder-start-fa
 * */
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
@@ -69,6 +73,7 @@ public class MainActivity extends AppCompatActivity  {
     private boolean recordingv = false;
 
     private Camera mCamera ;
+    Camera.Parameters params;
 
     private SurfaceHolder.Callback callback;
 
@@ -92,7 +97,12 @@ public class MainActivity extends AppCompatActivity  {
         }
 
         Camera.CameraInfo info = new Camera.CameraInfo();
-        Camera.getCameraInfo(Camera.CameraInfo.CAMERA_FACING_FRONT, info);
+
+        if(cameraswitch_number)
+            Camera.getCameraInfo(Camera.CameraInfo.CAMERA_FACING_FRONT, info);
+        else
+            Camera.getCameraInfo(Camera.CameraInfo.CAMERA_FACING_BACK, info);
+
         int rotation = getWindowManager().getDefaultDisplay().getRotation();
         int degrees = 0;
         switch (rotation) {
@@ -110,7 +120,7 @@ public class MainActivity extends AppCompatActivity  {
                 break;// Landscape right
         }
         int rotate = (info.orientation - degrees + 360) % 360;
-        Camera.Parameters params = mCamera.getParameters();
+        params = mCamera.getParameters();
         params.setRotation(rotate);
         mCamera.setParameters(params);
         mCamera.setDisplayOrientation(90);
@@ -126,7 +136,7 @@ public class MainActivity extends AppCompatActivity  {
             public void surfaceCreated(SurfaceHolder holder) {
                 // no-op -- wait until surfaceChanged()
                 try {
-                    mCamera.setPreviewDisplay(previewHolder);
+                    mCamera.setPreviewDisplay(holder);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -143,6 +153,39 @@ public class MainActivity extends AppCompatActivity  {
         };
 
         previewHolder.addCallback(callback);
+
+    }
+
+    /*
+    * https://stackoverflow.com/questions/11485517/android-takepicture-failed
+    * */
+    private void takeapic()
+    {
+
+        Camera.PictureCallback photoCallback = new Camera.PictureCallback() {
+            @RequiresApi(api = Build.VERSION_CODES.O)
+            public void onPictureTaken(byte[] data, Camera camera) {
+                // Save the image JPEG data to the SD card
+                FileOutputStream outStream = null;
+                try {
+                    File path = Environment.getExternalStoragePublicDirectory(
+                            Environment.DIRECTORY_PICTURES);
+                    path.mkdirs();
+                    File file = new File(path, Instant.now().toEpochMilli() + ".jpeg");
+
+                    outStream = new FileOutputStream(file);
+                    outStream.write(data);
+                    outStream.close();
+                } catch (FileNotFoundException e) {
+                    Log.d("CAMERA", e.getMessage());
+                } catch (IOException e) {
+                    Log.d("CAMERA", e.getMessage());
+                }
+                camera.startPreview();
+            }
+        };
+
+        mCamera.takePicture(null,null,photoCallback);
 
     }
 
@@ -164,15 +207,27 @@ public class MainActivity extends AppCompatActivity  {
         recorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
         recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
 
-        recorder.setOutputFile(file);
-        //recorder.setVideoEncodingBitRate(10000000);
+        recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+        /*
+        * This frame record seems broken ; it doesn't work and keep frozen on 24 fps whats sounds very bad.
+        * */
+       // recorder.setCaptureRate(30);
         recorder.setVideoFrameRate(60);
+        recorder.setVideoSize(mCamera.getParameters().getSupportedPreviewSizes().get(0).width,mCamera.getParameters().getSupportedPreviewSizes().get(0).height );
+        recorder.setOrientationHint(90);
+
+        recorder.setOutputFile(file);
+
+        recorder.setVideoEncodingBitRate(15000000);
+
+        /*
+        * This is simple copy could be done by Camera it self ? surface changes when you try record video
+        * */
         recorder.setPreviewDisplay(cameraView.getHolder().getSurface());
-        //recorder.setVideoSize(mCamera.getParameters().getSupportedPreviewSizes().get(0).width,mCamera.getParameters().getSupportedPreviewSizes().get(0).height );
-        recorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
+
 
         if(disableaudio)
-            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC_ELD);
+            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
         // int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
 
         //recorder.setOrientationHint(DEFAULT_ORIENTATIONS.get(rotation));
@@ -253,7 +308,7 @@ public class MainActivity extends AppCompatActivity  {
         takepic.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
+                takeapic();
             }
         });
 
