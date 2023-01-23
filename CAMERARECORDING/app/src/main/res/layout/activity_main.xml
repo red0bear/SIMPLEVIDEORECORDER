@@ -10,7 +10,7 @@
         android:layout_width="130dp"
         android:layout_height="100dp"
         android:text="Start Stream"
-        android:layout_marginVertical="20dp"
+        android:layout_marginVertical="120dp"
         android:layout_marginHorizontal="7dp"
         app:layout_constraintBottom_toBottomOf="@+id/surfaceView"
         app:layout_constraintStart_toEndOf="@id/surfaceView"
@@ -35,6 +35,16 @@
         android:layout_marginHorizontal="4dp"
         app:layout_constraintBottom_toBottomOf="@+id/surfaceView"
         app:layout_constraintStart_toEndOf="@+id/buttontakepic" />
+
+    <Button
+        android:id="@+id/buttonmute"
+        android:layout_width="130dp"
+        android:layout_height="100dp"
+        android:text="MUTE MIC"
+        android:layout_marginVertical="20dp"
+        android:layout_marginHorizontal="0dp"
+        app:layout_constraintBottom_toBottomOf="@+id/surfaceView"
+        app:layout_constraintEnd_toEndOf="@+id/buttonstartstream" />
 
     <SurfaceView
         android:id="@+id/surfaceView"

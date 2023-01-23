@@ -50,15 +50,16 @@ import java.time.Instant;
 public class MainActivity extends AppCompatActivity  {
 
     private boolean cameraswitch_number = false;
-    private boolean cameraConfigured = false;
+    private boolean disableaudio = true;
 
     private Button startstream;
     private Button takepic;
     private Button switchcamera;
 
+    private Button buttonmute;
+
     private SurfaceView cameraView;
     private  SurfaceHolder previewHolder;
-    private SurfaceHolder mholder;
 
     private MediaRecorder recorder;
 
@@ -71,29 +72,6 @@ public class MainActivity extends AppCompatActivity  {
 
     private SurfaceHolder.Callback callback;
 
-    private Camera.Size getBestPreviewSize(int width, int height,
-                                           Camera.Parameters parameters) {
-        Camera.Size result=null;
-
-        for (Camera.Size size : parameters.getSupportedPreviewSizes()) {
-            if (size.width<=width && size.height<=height) {
-                if (result==null) {
-                    result=size;
-                }
-                else {
-                    int resultArea=result.width*result.height;
-                    int newArea=size.width*size.height;
-
-                    if (newArea>resultArea) {
-                        result=size;
-                    }
-                }
-            }
-        }
-
-        return(result);
-    }
-
     private void switchcameranow(int camera)
     {
 
@@ -103,15 +81,15 @@ public class MainActivity extends AppCompatActivity  {
             mCamera.release();
             mCamera = null;
         }
-        /*
-        if(recorder != null) {
-            recorder.reset();
-            recorder.release();
-            recorder=null;
-        }
-        */
+
+        recorder = new MediaRecorder();
         mCamera=Camera.open(camera);
 
+        try {
+            mCamera.setPreviewDisplay(previewHolder);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
         Camera.CameraInfo info = new Camera.CameraInfo();
         Camera.getCameraInfo(Camera.CameraInfo.CAMERA_FACING_FRONT, info);
@@ -135,14 +113,14 @@ public class MainActivity extends AppCompatActivity  {
         Camera.Parameters params = mCamera.getParameters();
         params.setRotation(rotate);
         mCamera.setParameters(params);
-
         mCamera.setDisplayOrientation(90);
         mCamera.startPreview();
 
-        cameraView  = findViewById(R.id.surfaceView);
-        previewHolder = cameraView.getHolder();
+        if(callback == null){
 
-        //previewHolder.removeCallback(callback);
+        }
+        else
+            previewHolder.removeCallback(callback);
 
         callback = new SurfaceHolder.Callback() {
             public void surfaceCreated(SurfaceHolder holder) {
@@ -180,7 +158,9 @@ public class MainActivity extends AppCompatActivity  {
         path.mkdirs();
         File file = new File(path, Instant.now().toEpochMilli() + ".mp4");
 
-        recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+        if(disableaudio)
+            recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+
         recorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
         recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
 
@@ -188,9 +168,11 @@ public class MainActivity extends AppCompatActivity  {
         //recorder.setVideoEncodingBitRate(10000000);
         recorder.setVideoFrameRate(60);
         recorder.setPreviewDisplay(cameraView.getHolder().getSurface());
-        recorder.setVideoSize(mCamera.getParameters().getSupportedPreviewSizes().get(0).width,mCamera.getParameters().getSupportedPreviewSizes().get(0).height );
+        //recorder.setVideoSize(mCamera.getParameters().getSupportedPreviewSizes().get(0).width,mCamera.getParameters().getSupportedPreviewSizes().get(0).height );
         recorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
-        recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC_ELD);
+
+        if(disableaudio)
+            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC_ELD);
         // int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
 
         //recorder.setOrientationHint(DEFAULT_ORIENTATIONS.get(rotation));
@@ -209,9 +191,12 @@ public class MainActivity extends AppCompatActivity  {
         takepic = findViewById(R.id.buttontakepic);
         switchcamera = findViewById(R.id.buttonswitchcamera);
 
+        buttonmute= findViewById(R.id.buttonmute);
+
         cameraView  = findViewById(R.id.surfaceView);
         previewHolder = cameraView.getHolder();
 
+        recorder = new MediaRecorder();
         switchcameranow(Camera.CameraInfo.CAMERA_FACING_BACK);
 
         startstream.setOnClickListener(new View.OnClickListener() {
@@ -233,13 +218,35 @@ public class MainActivity extends AppCompatActivity  {
                     startstream.setText("STOP");
                 }else
                 {
+
                     recordingv = false;
-                    recorder.reset();
+                    recorder.stop();
                     recorder.release();
-                   // recorder.stop();
+                    recorder = null;
+
+                    if(cameraswitch_number) {
+
+                        switchcameranow(Camera.CameraInfo.CAMERA_FACING_FRONT);
+                    }
+                    else {
+                        switchcameranow(Camera.CameraInfo.CAMERA_FACING_BACK);
+                    }
 
                     startstream.setText("START STREAM");
                 }
+            }
+        });
+
+        buttonmute.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                disableaudio =! disableaudio;
+
+                if(disableaudio)
+                    buttonmute.setText("MUTE MIC");
+                else
+                    buttonmute.setText("MUTED");
+
             }
         });
 
@@ -258,10 +265,10 @@ public class MainActivity extends AppCompatActivity  {
 
                 if(cameraswitch_number) {
 
-                    switchcameranow(Camera.CameraInfo.CAMERA_FACING_BACK);
+                    switchcameranow(Camera.CameraInfo.CAMERA_FACING_FRONT);
                 }
                 else {
-                    switchcameranow(Camera.CameraInfo.CAMERA_FACING_FRONT);
+                    switchcameranow(Camera.CameraInfo.CAMERA_FACING_BACK);
                 }
 
             }
