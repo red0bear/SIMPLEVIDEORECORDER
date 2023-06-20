@@ -4,36 +4,21 @@ package com.example.camerarecording;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
-import android.graphics.Matrix;
-import android.graphics.SurfaceTexture;
+import android.content.pm.ActivityInfo;
 import android.hardware.Camera;
-import android.hardware.camera2.CameraAccessException;
-import android.hardware.camera2.CameraCaptureSession;
-import android.hardware.camera2.CameraCharacteristics;
-import android.hardware.camera2.CameraDevice;
-import android.hardware.camera2.CameraManager;
-import android.hardware.camera2.CaptureRequest;
-import android.media.MediaCodec;
 import android.media.MediaRecorder;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.support.annotation.NonNull;
 import android.support.annotation.RequiresApi;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
-import android.util.Size;
-import android.view.Gravity;
-import android.view.Menu;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
-import android.widget.FrameLayout;
-import android.widget.RelativeLayout;
-import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -60,22 +45,54 @@ public class MainActivity extends AppCompatActivity  {
     private Button takepic;
     private Button switchcamera;
 
+    private Button buttontotatecamera;
+
     private Button buttonmute;
 
     private SurfaceView cameraView;
-    private  SurfaceHolder previewHolder;
+    private SurfaceHolder previewHolder;
 
     private MediaRecorder recorder;
 
     private Context ctx;
 
+    int degrees =0;
+    int rotation =0;
+
+    int rotate = 0;
 
     private boolean recordingv = false;
 
     private Camera mCamera ;
-    Camera.Parameters params;
+
+    private Camera.Parameters params;
 
     private SurfaceHolder.Callback callback;
+
+    private void rotate_camera()
+    {
+        switch (rotation) {
+            case Surface.ROTATION_0:
+                degrees = 0;
+                rotation = rotation + 1;//getWindowManager().getDefaultDisplay().getRotation();
+                break; // Natural orientation
+            case Surface.ROTATION_90:
+                degrees = 90;
+                rotation = rotation + 1;//getWindowManager().getDefaultDisplay().getRotation();
+                break; // Landscape left
+            case Surface.ROTATION_180:
+                degrees = 180;
+                rotation = rotation + 1;//getWindowManager().getDefaultDisplay().getRotation();
+                break;// Upside down
+            case Surface.ROTATION_270:
+                degrees = 270;
+                rotation =0;
+                break;// Landscape right
+        }
+        Camera.CameraInfo info = new Camera.CameraInfo();
+        int rotate = (info.orientation - degrees + 360) % 360;
+        mCamera.setDisplayOrientation(rotate);
+    }
 
     private void switchcameranow(int camera)
     {
@@ -87,14 +104,8 @@ public class MainActivity extends AppCompatActivity  {
             mCamera = null;
         }
 
-        recorder = new MediaRecorder();
-        mCamera=Camera.open(camera);
-
-        try {
-            mCamera.setPreviewDisplay(previewHolder);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        //recorder = new MediaRecorder();
+        mCamera = Camera.open(camera);
 
         Camera.CameraInfo info = new Camera.CameraInfo();
 
@@ -103,28 +114,9 @@ public class MainActivity extends AppCompatActivity  {
         else
             Camera.getCameraInfo(Camera.CameraInfo.CAMERA_FACING_BACK, info);
 
-        int rotation = getWindowManager().getDefaultDisplay().getRotation();
-        int degrees = 0;
-        switch (rotation) {
-            case Surface.ROTATION_0:
-                degrees = 0;
-                break; // Natural orientation
-            case Surface.ROTATION_90:
-                degrees = 90;
-                break; // Landscape left
-            case Surface.ROTATION_180:
-                degrees = 180;
-                break;// Upside down
-            case Surface.ROTATION_270:
-                degrees = 270;
-                break;// Landscape right
-        }
-        int rotate = (info.orientation - degrees + 360) % 360;
-        params = mCamera.getParameters();
-        params.setRotation(rotate);
-        mCamera.setParameters(params);
-        mCamera.setDisplayOrientation(90);
-        mCamera.startPreview();
+        rotate = (info.orientation - getWindowManager().getDefaultDisplay().getRotation() + 360) % 360;
+
+        mCamera.setDisplayOrientation(rotate);
 
         if(callback == null){
 
@@ -136,15 +128,23 @@ public class MainActivity extends AppCompatActivity  {
             public void surfaceCreated(SurfaceHolder holder) {
                 // no-op -- wait until surfaceChanged()
                 try {
-                    mCamera.setPreviewDisplay(holder);
+                    mCamera.setPreviewDisplay(cameraView.getHolder());
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
+                //previewHolder.setPreviewDisplay(holder);
+                //mCamera.setDisplayOrientation(rotate);
             }
 
             public void surfaceChanged(SurfaceHolder holder,
                                        int format, int width,
                                        int height) {
+
+              //  previewHolder = holder;
+                previewHolder.setFixedSize(width,height);
+                //   mCamera.setPreviewDisplay(holder);
+                mCamera.setDisplayOrientation(rotate);
+                //
             }
 
             public void surfaceDestroyed(SurfaceHolder holder) {
@@ -154,6 +154,7 @@ public class MainActivity extends AppCompatActivity  {
 
         previewHolder.addCallback(callback);
 
+        mCamera.startPreview();
     }
 
     /*
@@ -189,7 +190,6 @@ public class MainActivity extends AppCompatActivity  {
 
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
     private void setUpMediaRecorder() throws IOException {
         final Activity activity = this;
         if (null == activity) {
@@ -199,12 +199,20 @@ public class MainActivity extends AppCompatActivity  {
         File path = Environment.getExternalStoragePublicDirectory(
                 Environment.DIRECTORY_MOVIES);
         path.mkdirs();
-        File file = new File(path, Instant.now().toEpochMilli() + ".mp4");
+        File file = null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            file = new File(path, Instant.now().toEpochMilli() + ".mp4");
+        }
 
         if(disableaudio)
             recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
 
+        /*
+        *  SURFACE can only work using recorder.setInputSurface(MediaCodec.createPersistentInputSurface())
+        *  CAMERA sux seems i have already a setup on previous .. but it replace with new one rotating to original :(
+        * */
         recorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
+
         recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
 
         recorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
@@ -214,23 +222,36 @@ public class MainActivity extends AppCompatActivity  {
        // recorder.setCaptureRate(30);
         recorder.setVideoFrameRate(60);
         recorder.setVideoSize(mCamera.getParameters().getSupportedPreviewSizes().get(0).width,mCamera.getParameters().getSupportedPreviewSizes().get(0).height );
-        recorder.setOrientationHint(90);
 
-        recorder.setOutputFile(file);
+        /*This works only  playback video*/
+        recorder.setOrientationHint(0);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            recorder.setOutputFile(file);
+        }
 
         recorder.setVideoEncodingBitRate(15000000);
-
         /*
         * This is simple copy could be done by Camera it self ? surface changes when you try record video
+        *
+        *  1. recorder.setInputSurface(MediaCodec.createPersistentInputSurface())
+        *  This should create a persistence Surface by given already Surface created ?
+        *  Why a already configured camera can not passed to media record  ?
+        *  i can set a preview by surfaceview but cant pass it to media record
+        *
+        * This first generation camera is good , but things have no good examples and missing friendly pass from a class to others config
+        * where it could be more messy on version 2
+        *
+        *  Spy less people and do better code and easy to use.
+        *
         * */
-        recorder.setPreviewDisplay(cameraView.getHolder().getSurface());
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+             recorder.setPreviewDisplay(cameraView.getHolder().getSurface());
+        }
 
         if(disableaudio)
             recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-        // int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
-
-        //recorder.setOrientationHint(DEFAULT_ORIENTATIONS.get(rotation));
     }
 
     private TextureView myTexture;
@@ -247,12 +268,26 @@ public class MainActivity extends AppCompatActivity  {
         switchcamera = findViewById(R.id.buttonswitchcamera);
 
         buttonmute= findViewById(R.id.buttonmute);
+        buttontotatecamera = findViewById(R.id.buttontotatecamera);
 
         cameraView  = findViewById(R.id.surfaceView);
         previewHolder = cameraView.getHolder();
 
-        recorder = new MediaRecorder();
+       // recorder = new MediaRecorder();
         switchcameranow(Camera.CameraInfo.CAMERA_FACING_BACK);
+
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+
+        buttontotatecamera.setOnClickListener((new View.OnClickListener()
+        {
+            @Override
+            public void onClick(View view)
+            {
+                rotate_camera();
+            }
+
+        }));
+
 
         startstream.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -273,7 +308,6 @@ public class MainActivity extends AppCompatActivity  {
                     startstream.setText("STOP");
                 }else
                 {
-
                     recordingv = false;
                     recorder.stop();
                     recorder.release();
