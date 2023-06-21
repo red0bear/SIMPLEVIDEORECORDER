@@ -16,8 +16,8 @@ import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
-import android.view.TextureView;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 
 import java.io.File;
@@ -33,6 +33,7 @@ import java.time.Instant;
 * https://stackoverflow.com/questions/9238383/using-surfaceview-to-capture-a-video
 * https://stackoverflow.com/questions/16852774/getdefaultdisplay-getrotation-returns-always-same-value
 * https://stackoverflow.com/questions/24176463/difference-between-setvideoframerate-and-setcapturerate-mediarecorder-start-fa
+* https://stackoverflow.com/questions/51332386/mediarecorder-and-videosource-surface-stop-failed-1007-a-serious-android-bug
 * */
 
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
@@ -50,7 +51,7 @@ public class MainActivity extends AppCompatActivity  {
     private Button buttonmute;
 
     private SurfaceView cameraView;
-    private SurfaceHolder previewHolder;
+    //private SurfaceHolder previewHolder;
 
     private MediaRecorder recorder;
 
@@ -60,6 +61,9 @@ public class MainActivity extends AppCompatActivity  {
     int rotation =0;
 
     int rotate = 0;
+
+    int width  = 0;
+    int height = 0;
 
     private boolean recordingv = false;
 
@@ -104,7 +108,11 @@ public class MainActivity extends AppCompatActivity  {
             mCamera = null;
         }
 
-        //recorder = new MediaRecorder();
+        /*
+        *  necessary since there is no clean way to pass to media recorder
+        * */
+        recorder = new MediaRecorder();
+
         mCamera = Camera.open(camera);
 
         Camera.CameraInfo info = new Camera.CameraInfo();
@@ -118,30 +126,39 @@ public class MainActivity extends AppCompatActivity  {
 
         mCamera.setDisplayOrientation(rotate);
 
+        width = mCamera.getParameters().getSupportedPreviewSizes().get(0).width;
+        height = mCamera.getParameters().getSupportedPreviewSizes().get(0).height;
+
         if(callback == null){
 
         }
         else
-            previewHolder.removeCallback(callback);
+            cameraView.getHolder().removeCallback(callback);
 
         callback = new SurfaceHolder.Callback() {
             public void surfaceCreated(SurfaceHolder holder) {
                 // no-op -- wait until surfaceChanged()
+                //cameraView.getHolder()
+                //cameraView.setPreviewDisplay(holder);
+                //mCamera.setDisplayOrientation(rotate);
+
                 try {
                     mCamera.setPreviewDisplay(cameraView.getHolder());
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-                //previewHolder.setPreviewDisplay(holder);
-                //mCamera.setDisplayOrientation(rotate);
             }
 
             public void surfaceChanged(SurfaceHolder holder,
                                        int format, int width,
                                        int height) {
+                try {
+                    mCamera.setPreviewDisplay(cameraView.getHolder());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
 
-              //  previewHolder = holder;
-                previewHolder.setFixedSize(width,height);
+                cameraView.getHolder().setFixedSize(width,height);
                 //   mCamera.setPreviewDisplay(holder);
                 mCamera.setDisplayOrientation(rotate);
                 //
@@ -152,9 +169,24 @@ public class MainActivity extends AppCompatActivity  {
             }
         };
 
-        previewHolder.addCallback(callback);
+        /*Bizarre */
+        try {
+            mCamera.setPreviewDisplay(cameraView.getHolder());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+
+        cameraView.getHolder().addCallback(callback);
 
         mCamera.startPreview();
+
+        /*This is called before unlock camera
+        * For some reason unlock can not be called after function here
+        * */
+        recorder.setCamera(mCamera);
+
+
     }
 
     /*
@@ -204,6 +236,11 @@ public class MainActivity extends AppCompatActivity  {
             file = new File(path, Instant.now().toEpochMilli() + ".mp4");
         }
 
+        /*
+        *  WOW, nice and broken feature
+        * */
+        mCamera.unlock();
+
         if(disableaudio)
             recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
 
@@ -221,7 +258,7 @@ public class MainActivity extends AppCompatActivity  {
         * */
        // recorder.setCaptureRate(30);
         recorder.setVideoFrameRate(60);
-        recorder.setVideoSize(mCamera.getParameters().getSupportedPreviewSizes().get(0).width,mCamera.getParameters().getSupportedPreviewSizes().get(0).height );
+        recorder.setVideoSize(width,height);
 
         /*This works only  playback video*/
         recorder.setOrientationHint(0);
@@ -242,6 +279,7 @@ public class MainActivity extends AppCompatActivity  {
         * This first generation camera is good , but things have no good examples and missing friendly pass from a class to others config
         * where it could be more messy on version 2
         *
+        *
         *  Spy less people and do better code and easy to use.
         *
         * */
@@ -253,8 +291,6 @@ public class MainActivity extends AppCompatActivity  {
         if(disableaudio)
             recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
     }
-
-    private TextureView myTexture;
 
     @SuppressLint("NewApi")
     @Override
@@ -271,11 +307,10 @@ public class MainActivity extends AppCompatActivity  {
         buttontotatecamera = findViewById(R.id.buttontotatecamera);
 
         cameraView  = findViewById(R.id.surfaceView);
-        previewHolder = cameraView.getHolder();
 
-       // recorder = new MediaRecorder();
         switchcameranow(Camera.CameraInfo.CAMERA_FACING_BACK);
 
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
         buttontotatecamera.setOnClickListener((new View.OnClickListener()
@@ -295,7 +330,7 @@ public class MainActivity extends AppCompatActivity  {
 
                 if (!recordingv) {
                     try {
-                        recorder = new MediaRecorder();
+                       // recorder = new MediaRecorder();
                         setUpMediaRecorder();
                         recorder.prepare();
                     } catch (IOException e) {
